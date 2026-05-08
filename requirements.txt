@@ -1,6 +1,6 @@
 fastapi
 uvicorn[standard]
 twilio
-anthropic
+google-generativeai
 python-dotenv
 aiofiles
