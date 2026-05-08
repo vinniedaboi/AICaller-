@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI Caller — Mr Vincent</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:       #0d0f14;
+    --surface:  #141720;
+    --border:   #1f2330;
+    --border2:  #2a2f42;
+    --text:     #e8eaf0;
+    --muted:    #6b7280;
+    --accent:   #4f6ef7;
+    --accent2:  #7c3aed;
+    --yes:      #10b981;
+    --no:       #ef4444;
+    --maybe:    #f59e0b;
+    --vm:       #8b5cf6;
+    --calling:  #3b82f6;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 14px;
+    min-height: 100vh;
+  }
+
+  /* ── Layout ── */
+  .shell { display: grid; grid-template-columns: 220px 1fr; min-height: 100vh; }
+
+  /* ── Sidebar ── */
+  .sidebar {
+    background: var(--surface);
+    border-right: 1px solid var(--border);
+    padding: 24px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .logo {
+    padding: 0 20px 24px;
+    border-bottom: 1px solid var(--border);
+    margin-bottom: 8px;
+  }
+  .logo-mark {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .logo-icon {
+    width: 32px; height: 32px;
+    background: linear-gradient(135deg, var(--accent), var(--accent2));
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 16px;
+  }
+  .logo-text { font-size: 15px; font-weight: 700; letter-spacing: -0.3px; }
+  .logo-sub  { font-size: 11px; color: var(--muted); margin-top: 2px; font-family: 'DM Mono', monospace; }
+
+  .nav { padding: 8px 12px; flex: 1; }
+  .nav-item {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px;
+    border-radius: 8px;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 13px;
+    font-weight: 600;
+    transition: all 0.15s;
+    border: 1px solid transparent;
+  }
+  .nav-item:hover { color: var(--text); background: var(--border); }
+  .nav-item.active {
+    color: var(--text);
+    background: rgba(79,110,247,0.12);
+    border-color: rgba(79,110,247,0.25);
+  }
+  .nav-icon { font-size: 16px; width: 18px; text-align: center; }
+
+  .sidebar-stats {
+    margin: 0 12px 12px;
+    padding: 14px;
+    background: var(--bg);
+    border-radius: 10px;
+    border: 1px solid var(--border);
+  }
+  .ss-label { font-size: 10px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 10px; }
+  .ss-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px; }
+  .ss-row:last-child { margin-bottom: 0; }
+  .ss-name { font-size: 12px; color: var(--muted); }
+  .ss-val  { font-family: 'DM Mono', monospace; font-size: 13px; font-weight: 500; }
+
+  /* ── Main ── */
+  .main { display: flex; flex-direction: column; overflow: hidden; }
+
+  .topbar {
+    padding: 16px 28px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--surface);
+  }
+  .page-title { font-size: 17px; font-weight: 700; }
+  .topbar-actions { display: flex; gap: 10px; }
+
+  .btn {
+    padding: 8px 16px;
+    border-radius: 8px;
+    border: 1px solid var(--border2);
+    background: var(--surface);
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex; align-items: center; gap: 6px;
+    transition: all 0.15s;
+  }
+  .btn:hover { border-color: var(--accent); color: var(--accent); }
+  .btn-accent {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: #fff;
+  }
+  .btn-accent:hover { background: #3a5de0; border-color: #3a5de0; color: #fff; }
+  .btn-green  { background: var(--yes); border-color: var(--yes); color: #fff; }
+  .btn-green:hover { background: #0da271; border-color: #0da271; color: #fff; }
+  .btn-sm { padding: 5px 10px; font-size: 12px; }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+  /* ── Content area ── */
+  .content { padding: 24px 28px; flex: 1; overflow-y: auto; }
+
+  /* ── View panels ── */
+  .view { display: none; }
+  .view.active { display: block; }
+
+  /* ── Stats row ── */
+  .stats-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr);
+    gap: 12px;
+    margin-bottom: 24px;
+  }
+  .stat-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 16px;
+    transition: border-color 0.15s;
+  }
+  .stat-card:hover { border-color: var(--border2); }
+  .stat-label { font-size: 11px; color: var(--muted); font-family: 'DM Mono', monospace; text-transform: uppercase; letter-spacing: 0.06em; margin-bottom: 8px; }
+  .stat-val   { font-size: 26px; font-weight: 700; font-family: 'DM Mono', monospace; }
+  .stat-card.s-yes   .stat-val { color: var(--yes); }
+  .stat-card.s-no    .stat-val { color: var(--no); }
+  .stat-card.s-maybe .stat-val { color: var(--maybe); }
+  .stat-card.s-vm    .stat-val { color: var(--vm); }
+
+  /* ── Table ── */
+  .table-wrap {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .table-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 18px;
+    border-bottom: 1px solid var(--border);
+  }
+  .table-title { font-size: 13px; font-weight: 700; }
+  .filter-tabs { display: flex; gap: 4px; }
+  .ftab {
+    padding: 5px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    border: 1px solid transparent;
+    color: var(--muted);
+    background: transparent;
+    font-family: 'Syne', sans-serif;
+    transition: all 0.12s;
+  }
+  .ftab:hover { color: var(--text); }
+  .ftab.active { background: rgba(79,110,247,0.15); border-color: rgba(79,110,247,0.3); color: var(--accent); }
+
+  table { width: 100%; border-collapse: collapse; }
+  thead th {
+    padding: 10px 18px;
+    text-align: left;
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    border-bottom: 1px solid var(--border);
+    font-weight: 400;
+  }
+  tbody tr { border-bottom: 1px solid var(--border); transition: background 0.1s; }
+  tbody tr:last-child { border-bottom: none; }
+  tbody tr:hover { background: rgba(255,255,255,0.02); }
+  td { padding: 11px 18px; font-size: 13px; }
+
+  .pill {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 600;
+    font-family: 'DM Mono', monospace;
+  }
+  .pill-dot { width: 5px; height: 5px; border-radius: 50%; }
+  .pill.yes      { background: rgba(16,185,129,0.12); color: var(--yes); }
+  .pill.yes .pill-dot { background: var(--yes); }
+  .pill.no       { background: rgba(239,68,68,0.12);  color: var(--no); }
+  .pill.no .pill-dot  { background: var(--no); }
+  .pill.maybe    { background: rgba(245,158,11,0.12); color: var(--maybe); }
+  .pill.maybe .pill-dot { background: var(--maybe); }
+  .pill.voicemail{ background: rgba(139,92,246,0.12); color: var(--vm); }
+  .pill.voicemail .pill-dot { background: var(--vm); }
+  .pill.pending  { background: rgba(107,114,128,0.12); color: var(--muted); }
+  .pill.pending .pill-dot { background: var(--muted); }
+  .pill.calling  { background: rgba(59,130,246,0.12); color: var(--calling); animation: pulse-border 1.5s ease-in-out infinite; }
+  .pill.calling .pill-dot { background: var(--calling); animation: blink 1s ease-in-out infinite; }
+  .pill.failed   { background: rgba(239,68,68,0.08); color: #f87171; }
+  .pill.failed .pill-dot { background: #f87171; }
+
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.2} }
+
+  .summary-text { color: var(--muted); font-size: 12px; max-width: 280px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lead-name { font-weight: 600; }
+  .phone-mono { font-family: 'DM Mono', monospace; color: var(--muted); font-size: 12px; }
+
+  /* ── Add lead panel ── */
+  .add-panel {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 24px;
+    max-width: 520px;
+    margin-bottom: 24px;
+  }
+  .add-panel h3 { font-size: 15px; font-weight: 700; margin-bottom: 18px; }
+  .field { margin-bottom: 14px; }
+  .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 6px; font-family: 'DM Mono', monospace; }
+  .field input, .field select, .field textarea {
+    width: 100%;
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-radius: 7px;
+    padding: 9px 12px;
+    color: var(--text);
+    font-family: 'Syne', sans-serif;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.15s;
+  }
+  .field input:focus, .field select:focus, .field textarea:focus {
+    border-color: var(--accent);
+  }
+  .field textarea { resize: vertical; min-height: 80px; font-family: 'DM Mono', monospace; font-size: 12px; }
+  .field select option { background: var(--surface); }
+  .row-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+  /* ── Yes list highlight ── */
+  .yes-banner {
+    background: rgba(16,185,129,0.08);
+    border: 1px solid rgba(16,185,129,0.2);
+    border-radius: 10px;
+    padding: 14px 18px;
+    margin-bottom: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  .yes-banner-text { font-size: 13px; color: var(--yes); font-weight: 600; }
+  .yes-banner-sub  { font-size: 12px; color: rgba(16,185,129,0.6); margin-top: 2px; }
+
+  /* ── Empty state ── */
+  .empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--muted);
+  }
+  .empty-icon { font-size: 32px; margin-bottom: 12px; opacity: 0.4; }
+  .empty-text { font-size: 14px; margin-bottom: 4px; }
+  .empty-sub  { font-size: 12px; opacity: 0.6; }
+
+  /* ── Toast ── */
+  #toast {
+    position: fixed;
+    bottom: 24px; right: 24px;
+    background: var(--surface);
+    border: 1px solid var(--border2);
+    border-radius: 10px;
+    padding: 12px 18px;
+    font-size: 13px;
+    font-weight: 600;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.4);
+    transform: translateY(80px);
+    opacity: 0;
+    transition: all 0.25s cubic-bezier(0.34,1.56,0.64,1);
+    z-index: 999;
+    max-width: 320px;
+  }
+  #toast.show { transform: translateY(0); opacity: 1; }
+  #toast.ok   { border-color: rgba(16,185,129,0.4); color: var(--yes); }
+  #toast.err  { border-color: rgba(239,68,68,0.4);  color: var(--no); }
+
+  /* ── Bulk import textarea ── */
+  .import-hint { font-size: 11px; color: var(--muted); margin-top: 5px; font-family: 'DM Mono', monospace; }
+
+  /* ── Script preview ── */
+  .script-box {
+    background: var(--bg);
+    border: 1px solid var(--border2);
+    border-left: 3px solid var(--accent);
+    border-radius: 8px;
+    padding: 14px 16px;
+    font-family: 'DM Mono', monospace;
+    font-size: 12px;
+    line-height: 1.7;
+    color: var(--muted);
+    margin-bottom: 20px;
+  }
+  .script-box em { color: var(--accent); font-style: normal; }
+
+  .section-label {
+    font-size: 11px;
+    color: var(--muted);
+    font-family: 'DM Mono', monospace;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    margin-bottom: 10px;
+  }
+
+  .spinner {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid rgba(255,255,255,0.2);
+    border-top-color: #fff;
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+
+<div class="shell">
+
+  <!-- ── Sidebar ── -->
+  <aside class="sidebar">
+    <div class="logo">
+      <div class="logo-mark">
+        <div class="logo-icon">📞</div>
+        <div>
+          <div class="logo-text">AI Caller</div>
+        </div>
+      </div>
+    </div>
+
+    <nav class="nav">
+      <div class="nav-item active" onclick="showView('dashboard', this)">
+        <span class="nav-icon">⚡</span> Dashboard
+      </div>
+      <div class="nav-item" onclick="showView('leads', this)">
+        <span class="nav-icon">👥</span> Leads
+      </div>
+      <div class="nav-item" onclick="showView('add', this)">
+        <span class="nav-icon">＋</span> Add Leads
+      </div>
+      <div class="nav-item" onclick="showView('confirmed', this)">
+        <span class="nav-icon">✅</span> Confirmed (Yes)
+      </div>
+    </nav>
+
+    <div class="sidebar-stats">
+      <div class="ss-label">Live Stats</div>
+      <div class="ss-row">
+        <span class="ss-name">Total leads</span>
+        <span class="ss-val" id="ss-total">—</span>
+      </div>
+      <div class="ss-row">
+        <span class="ss-name">Pending</span>
+        <span class="ss-val" id="ss-pending" style="color:var(--muted)">—</span>
+      </div>
+      <div class="ss-row">
+        <span class="ss-name">Confirmed</span>
+        <span class="ss-val" id="ss-yes" style="color:var(--yes)">—</span>
+      </div>
+      <div class="ss-row">
+        <span class="ss-name">Called</span>
+        <span class="ss-val" id="ss-called" style="color:var(--muted)">—</span>
+      </div>
+    </div>
+  </aside>
+
+  <!-- ── Main ── -->
+  <main class="main">
+    <div class="topbar">
+      <div class="page-title" id="pageTitle">Dashboard</div>
+      <div class="topbar-actions">
+        <button class="btn" onclick="refreshAll()">↻ Refresh</button>
+        <button class="btn btn-green" id="callAllBtn" onclick="callAll()">
+          📞 Call All Pending
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- ── Dashboard View ── -->
+      <div class="view active" id="view-dashboard">
+        <div class="stats-grid">
+          <div class="stat-card">
+            <div class="stat-label">Total Leads</div>
+            <div class="stat-val" id="d-total">0</div>
+          </div>
+          <div class="stat-card s-yes">
+            <div class="stat-label">Said YES ✓</div>
+            <div class="stat-val" id="d-yes">0</div>
+          </div>
+          <div class="stat-card s-no">
+            <div class="stat-label">Declined</div>
+            <div class="stat-val" id="d-no">0</div>
+          </div>
+          <div class="stat-card s-maybe">
+            <div class="stat-label">Maybe / Later</div>
+            <div class="stat-val" id="d-maybe">0</div>
+          </div>
+          <div class="stat-card s-vm">
+            <div class="stat-label">Voicemail</div>
+            <div class="stat-val" id="d-vm">0</div>
+          </div>
+        </div>
+
+        <div class="section-label">AI Script Preview</div>
+        <div class="script-box">
+          "Hi <em>{Lead Name}</em>, this is AI assistant calling on behalf of <em>PropertyLab</em>.
+          You registered for our webinar before.
+          Are you available for a quick call in the next <em>5 minutes</em>?
+          Please say yes or no after the tone."
+          <br><br>
+          → Lead responds → AI: "Thank you for your response. Our team will be in touch soon. Goodbye!"
+        </div>
+
+        <div class="section-label" style="margin-bottom:12px">Recent Activity</div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">All Leads</span>
+            <div class="filter-tabs">
+              <button class="ftab active" onclick="setFilter('all',this)">All</button>
+              <button class="ftab" onclick="setFilter('yes',this)">Yes</button>
+              <button class="ftab" onclick="setFilter('pending',this)">Pending</button>
+              <button class="ftab" onclick="setFilter('calling',this)">Calling</button>
+            </div>
+          </div>
+          <div id="dashTable"></div>
+        </div>
+      </div>
+
+      <!-- ── Leads View ── -->
+      <div class="view" id="view-leads">
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">All Leads</span>
+            <div class="filter-tabs">
+              <button class="ftab active" onclick="setFilter2('all',this)">All</button>
+              <button class="ftab" onclick="setFilter2('pending',this)">Pending</button>
+              <button class="ftab" onclick="setFilter2('yes',this)">Yes</button>
+              <button class="ftab" onclick="setFilter2('no',this)">No</button>
+              <button class="ftab" onclick="setFilter2('voicemail',this)">Voicemail</button>
+            </div>
+          </div>
+          <div id="leadsTable"></div>
+        </div>
+      </div>
+
+      <!-- ── Add Leads View ── -->
+      <div class="view" id="view-add">
+        <div class="add-panel">
+          <h3>Add Single Lead</h3>
+          <div class="row-2">
+            <div class="field">
+              <label>Full Name</label>
+              <input type="text" id="f-name" placeholder="Ahmad Razif">
+            </div>
+            <div class="field">
+              <label>Phone (E.164)</label>
+              <input type="text" id="f-phone" placeholder="+60123456789">
+            </div>
+          </div>
+          <div class="field">
+            <label>Source</label>
+            <select id="f-source">
+              <option>Webinar A</option>
+              <option>Webinar B</option>
+              <option>Demo</option>
+              <option>Trial</option>
+              <option>Referral</option>
+            </select>
+          </div>
+          <button class="btn btn-accent" onclick="addLead()">Add Lead</button>
+        </div>
+
+        <div class="add-panel">
+          <h3>Bulk Import (JSON)</h3>
+          <div class="field">
+            <label>Paste JSON Array</label>
+            <textarea id="f-bulk" placeholder='[
+  {"name": "Ahmad Razif", "phone": "+60123456789", "source": "Webinar A"},
+  {"name": "Siti Nurhaliza", "phone": "+60112345678", "source": "Webinar B"}
+]'></textarea>
+            <div class="import-hint">Format: [{name, phone, source}, ...]</div>
+          </div>
+          <button class="btn btn-accent" onclick="bulkImport()">Import Leads</button>
+        </div>
+      </div>
+
+      <!-- ── Confirmed View ── -->
+      <div class="view" id="view-confirmed">
+        <div class="yes-banner" id="yesBanner" style="display:none">
+          <div>
+            <div class="yes-banner-text" id="yesCount">0 leads confirmed</div>
+            <div class="yes-banner-sub">Ready for human agent callback — call them now!</div>
+          </div>
+          <button class="btn btn-green btn-sm" onclick="exportYes()">⬇ Export CSV</button>
+        </div>
+        <div class="table-wrap">
+          <div class="table-header">
+            <span class="table-title">Confirmed (Yes) Leads</span>
+          </div>
+          <div id="yesTable"></div>
+        </div>
+      </div>
+
+    </div><!-- /content -->
+  </main>
+</div><!-- /shell -->
+
+<div id="toast"></div>
+
+<script>
+let allLeads = [];
+let dashFilter = 'all';
+let leadsFilter = 'all';
+
+// ── Navigation ────────────────────────────────────────────────────────────────
+function showView(name, el) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('view-' + name).classList.add('active');
+  el.classList.add('active');
+  const titles = {dashboard:'Dashboard', leads:'All Leads', add:'Add Leads', confirmed:'Confirmed (Yes)'};
+  document.getElementById('pageTitle').textContent = titles[name] || name;
+  if (name === 'confirmed') renderYesTable();
+  if (name === 'leads') renderLeadsTable();
+}
+
+// ── API helpers ───────────────────────────────────────────────────────────────
+async function api(method, path, body) {
+  const opts = { method, headers: {'Content-Type':'application/json'} };
+  if (body) opts.body = JSON.stringify(body);
+  const r = await fetch(path, opts);
+  return r.json();
+}
+
+// ── Data loading ──────────────────────────────────────────────────────────────
+async function loadStats() {
+  const s = await api('GET', '/api/stats');
+  document.getElementById('d-total').textContent  = s.total;
+  document.getElementById('d-yes').textContent    = s.yes;
+  document.getElementById('d-no').textContent     = s.no;
+  document.getElementById('d-maybe').textContent  = s.maybe;
+  document.getElementById('d-vm').textContent     = s.voicemail;
+  document.getElementById('ss-total').textContent   = s.total;
+  document.getElementById('ss-pending').textContent = s.pending;
+  document.getElementById('ss-yes').textContent     = s.yes;
+  const called = s.yes + s.no + s.maybe + s.voicemail + s.calling;
+  document.getElementById('ss-called').textContent  = called;
+
+  // Yes banner
+  const banner = document.getElementById('yesBanner');
+  if (s.yes > 0) {
+    banner.style.display = 'flex';
+    document.getElementById('yesCount').textContent = `${s.yes} lead${s.yes > 1 ? 's' : ''} confirmed availability`;
+  } else {
+    banner.style.display = 'none';
+  }
+}
+
+async function loadLeads() {
+  allLeads = await api('GET', '/api/leads');
+  renderDashTable();
+  renderLeadsTable();
+  renderYesTable();
+}
+
+async function refreshAll() {
+  await Promise.all([loadStats(), loadLeads()]);
+  toast('Refreshed', 'ok');
+}
+
+// ── Tables ────────────────────────────────────────────────────────────────────
+function statusPill(s) {
+  const labels = {yes:'YES ✓', no:'NO', maybe:'MAYBE', voicemail:'VOICEMAIL', pending:'PENDING', calling:'CALLING…', failed:'FAILED'};
+  return `<span class="pill ${s}"><span class="pill-dot"></span>${labels[s] || s}</span>`;
+}
+
+function leadsHtml(leads, showCall = true) {
+  if (!leads.length) return `<div class="empty"><div class="empty-icon">📭</div><div class="empty-text">No leads here</div><div class="empty-sub">Add leads to get started</div></div>`;
+  return `<table>
+    <thead><tr>
+      <th>Name</th><th>Phone</th><th>Source</th><th>Status</th><th>Summary</th><th>Called</th>${showCall ? '<th></th>' : ''}
+    </tr></thead>
+    <tbody>
+    ${leads.map(l => `<tr>
+      <td><span class="lead-name">${l.name}</span></td>
+      <td><span class="phone-mono">${l.phone}</span></td>
+      <td>${l.source || '—'}</td>
+      <td>${statusPill(l.status)}</td>
+      <td><span class="summary-text">${l.summary || '—'}</span></td>
+      <td style="font-size:11px;color:var(--muted);font-family:'DM Mono',monospace">${l.called_at ? l.called_at.slice(11,16) : '—'}</td>
+      ${showCall ? `<td>
+        ${l.status === 'pending' || l.status === 'failed' ? `<button class="btn btn-sm" onclick="callOne('${l.id}')">📞 Call</button>` : ''}
+        <button class="btn btn-sm" style="margin-left:4px;color:var(--no)" onclick="deleteLead('${l.id}')">✕</button>
+      </td>` : ''}
+    </tr>`).join('')}
+    </tbody></table>`;
+}
+
+function renderDashTable() {
+  const filtered = dashFilter === 'all' ? allLeads : allLeads.filter(l => l.status === dashFilter);
+  document.getElementById('dashTable').innerHTML = leadsHtml(filtered);
+}
+
+function renderLeadsTable() {
+  const filtered = leadsFilter === 'all' ? allLeads : allLeads.filter(l => l.status === leadsFilter);
+  document.getElementById('leadsTable').innerHTML = leadsHtml(filtered);
+}
+
+function renderYesTable() {
+  const yes = allLeads.filter(l => l.status === 'yes');
+  document.getElementById('yesTable').innerHTML = leadsHtml(yes, false);
+}
+
+function setFilter(f, el) {
+  dashFilter = f;
+  document.querySelectorAll('#view-dashboard .ftab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderDashTable();
+}
+
+function setFilter2(f, el) {
+  leadsFilter = f;
+  document.querySelectorAll('#view-leads .ftab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  renderLeadsTable();
+}
+
+// ── Actions ───────────────────────────────────────────────────────────────────
+async function callAll() {
+  const btn = document.getElementById('callAllBtn');
+  btn.disabled = true;
+  btn.innerHTML = '<span class="spinner"></span> Calling…';
+  try {
+    const r = await api('POST', '/api/call-all');
+    toast(`Triggered ${r.triggered} calls`, 'ok');
+    setTimeout(refreshAll, 2000);
+  } catch(e) {
+    toast('Error triggering calls', 'err');
+  }
+  setTimeout(() => { btn.disabled = false; btn.innerHTML = '📞 Call All Pending'; }, 3000);
+}
+
+async function callOne(id) {
+  await api('POST', `/api/call/${id}`);
+  toast('Call triggered', 'ok');
+  setTimeout(refreshAll, 1500);
+}
+
+async function deleteLead(id) {
+  if (!confirm('Remove this lead?')) return;
+  await api('DELETE', `/api/leads/${id}`);
+  toast('Lead removed', 'ok');
+  await refreshAll();
+}
+
+async function addLead() {
+  const name  = document.getElementById('f-name').value.trim();
+  const phone = document.getElementById('f-phone').value.trim();
+  const source = document.getElementById('f-source').value;
+  if (!name || !phone) return toast('Name and phone required', 'err');
+  await api('POST', '/api/leads', {name, phone, source});
+  toast(`${name} added`, 'ok');
+  document.getElementById('f-name').value = '';
+  document.getElementById('f-phone').value = '';
+  await refreshAll();
+}
+
+async function bulkImport() {
+  const raw = document.getElementById('f-bulk').value.trim();
+  try {
+    const data = JSON.parse(raw);
+    const r = await api('POST', '/api/leads/import', data);
+    toast(`Imported ${r.imported} leads`, 'ok');
+    document.getElementById('f-bulk').value = '';
+    await refreshAll();
+  } catch(e) {
+    toast('Invalid JSON format', 'err');
+  }
+}
+
+function exportYes() {
+  const yes = allLeads.filter(l => l.status === 'yes');
+  if (!yes.length) return toast('No confirmed leads yet', 'err');
+  const rows = [['Name','Phone','Source','Summary','Called At']];
+  yes.forEach(l => rows.push([l.name, l.phone, l.source, l.summary || '', l.called_at || '']));
+  const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = 'data:text/csv;charset=utf-8,' + encodeURIComponent(csv);
+  a.download = 'confirmed_leads.csv';
+  a.click();
+  toast('CSV exported', 'ok');
+}
+
+// ── Toast ─────────────────────────────────────────────────────────────────────
+let toastTimer;
+function toast(msg, type='ok') {
+  const el = document.getElementById('toast');
+  el.textContent = msg;
+  el.className = `show ${type}`;
+  clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => { el.className = ''; }, 3000);
+}
+
+// ── Auto-refresh every 10s ────────────────────────────────────────────────────
+setInterval(() => { loadStats(); loadLeads(); }, 10000);
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+refreshAll();
+</script>
+</body>
+</html>
