@@ -7,6 +7,7 @@ from pathlib import Path
 from fastapi import FastAPI, Request, Form, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, Response
 from dotenv import load_dotenv
+import re
 
 import google.generativeai as genai
 
@@ -72,7 +73,7 @@ app = FastAPI(title="AI Caller MVP")
 # Serve single HTML file
 @app.get("/", response_class=HTMLResponse)
 async def root():
-    return HTMLResponse(Path("index.html").read_text())
+    return HTMLResponse(content=Path("index.html").read_text(encoding="utf-8"), media_type="text/html; charset=utf-8")
 
 # ── Lead management API ───────────────────────────────────────────────────────
 
@@ -536,7 +537,7 @@ Example:
     try:
 
         model = genai.GenerativeModel(
-            "gemini-1.5-flash"
+            "gemini-3.1-flash-lite"
         )
 
         response = model.generate_content(prompt)
